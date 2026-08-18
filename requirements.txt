@@ -1,0 +1,6 @@
+pyTelegramBotAPI
+psutil
+pyautogui
+pillow
+Flask
+requests
