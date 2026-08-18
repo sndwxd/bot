@@ -1,10 +1,9 @@
 import telebot
+from telebot import types
 import subprocess
 import os
 import psutil
 import time
-import platform
-from datetime import datetime
 import requests
 
 # ===== ТВОИ ДАННЫЕ =====
@@ -13,66 +12,63 @@ ADMIN_ID = 7924628949
 
 bot = telebot.TeleBot(TOKEN)
 
-# ===== ПРОВЕРКА СКРИНШОТОВ =====
-try:
-    import pyautogui
-    import io
-    from PIL import Image
-    SCREENSHOT_AVAILABLE = True
-except:
-    SCREENSHOT_AVAILABLE = False
-
 def is_admin(message):
     return message.from_user.id == ADMIN_ID
 
 # ============================================
-# ГЛАВНОЕ МЕНЮ (/start)
+# ГЛАВНОЕ МЕНЮ С КНОПКАМИ
 # ============================================
+def main_menu():
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    btn1 = types.KeyboardButton("📊 Система")
+    btn2 = types.KeyboardButton("📋 Процессы")
+    btn3 = types.KeyboardButton("⚡ Выполнить CMD")
+    btn4 = types.KeyboardButton("💀 Убить процесс")
+    btn5 = types.KeyboardButton("🌐 Мой IP")
+    btn6 = types.KeyboardButton("🏓 Пинг")
+    btn7 = types.KeyboardButton("⏹ Выключить ПК")
+    btn8 = types.KeyboardButton("🔄 Перезагрузить ПК")
+    btn9 = types.KeyboardButton("🔒 Блокировка")
+    btn10 = types.KeyboardButton("📸 Скриншот")
+    btn11 = types.KeyboardButton("💬 Уведомление")
+    btn12 = types.KeyboardButton("❓ Помощь")
+    markup.add(btn1, btn2, btn3, btn4, btn5, btn6, btn7, btn8, btn9, btn10, btn11, btn12)
+    return markup
+
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     if not is_admin(message): return
-    bot.reply_to(message, 
-        "🔥 **ПУЛЬТ УПРАВЛЕНИЯ ПК**\n"
+    bot.send_message(
+        message.chat.id,
+        "🎮 **ПУЛЬТ УПРАВЛЕНИЯ ПК**\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "🎯 **Команды:**\n"
-        "├ /info — загрузка системы\n"
-        "├ /ss — скриншот экрана\n"
-        "├ /cmd — выполнить команду\n"
-        "├ /ps — топ процессов\n"
-        "├ /kill — убить процесс\n"
-        "├ /reboot — перезагрузка\n"
-        "├ /shutdown — выключение\n"
-        "├ /lock — блокировка ПК\n"
-        "├ /ip — мой IP\n"
-        "├ /ping — задержка\n"
-        "└ /notify — уведомление\n\n"
-        "💡 **Просто напиши текст** — выполнится как CMD",
-        parse_mode='Markdown')
+        "👋 Привет! Я управляю твоим компьютером.\n"
+        "Нажми на кнопку ниже, чтобы начать.\n\n"
+        "⚠️ **Важно:** Скриншоты, уведомления, выключение и перезагрузка работают ТОЛЬКО если у тебя запущена локальная версия бота на ПК.",
+        parse_mode='Markdown',
+        reply_markup=main_menu()
+    )
 
 # ============================================
-# ИНФО О СИСТЕМЕ (красиво)
+# ОБРАБОТКА КНОПОК
 # ============================================
-@bot.message_handler(commands=['info'])
-def info_cmd(message):
+
+# --- Кнопка "Система" ---
+@bot.message_handler(func=lambda message: message.text == "📊 Система")
+def info_btn(message):
     if not is_admin(message): return
     
     cpu = psutil.cpu_percent(interval=1)
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage('/')
-    uptime = time.time() - psutil.boot_time()
-    hours = int(uptime // 3600)
-    minutes = int((uptime % 3600) // 60)
     
-    # Визуальные индикаторы
     cpu_bar = "█" * int(cpu/10) + "░" * (10 - int(cpu/10))
     mem_bar = "█" * int(mem.percent/10) + "░" * (10 - int(mem.percent/10))
     disk_bar = "█" * int(disk.percent/10) + "░" * (10 - int(disk.percent/10))
     
     text = (
         "📊 **СИСТЕМА**\n"
-        "━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💻 {platform.node()}\n"
-        f"⏱  {hours}ч {minutes}мин\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"⚡ CPU  {cpu}%\n"
         f"`{cpu_bar}`\n\n"
         f"💾 RAM  {mem.percent}%\n"
@@ -81,56 +77,11 @@ def info_cmd(message):
         f"`{disk_bar}`\n\n"
         f"📦 Процессов: {len(psutil.pids())}"
     )
-    bot.reply_to(message, text, parse_mode='Markdown')
+    bot.send_message(message.chat.id, text, parse_mode='Markdown', reply_markup=main_menu())
 
-# ============================================
-# СКРИНШОТ (сократил команду до /ss)
-# ============================================
-@bot.message_handler(commands=['ss'])
-def screenshot_cmd(message):
-    if not is_admin(message): return
-    
-    if not SCREENSHOT_AVAILABLE:
-        bot.reply_to(message, "❌ Скриншоты только на ПК")
-        return
-    
-    try:
-        msg = bot.reply_to(message, "📸 Делаю скрин...")
-        screenshot = pyautogui.screenshot()
-        img_bytes = io.BytesIO()
-        screenshot.save(img_bytes, format='JPEG', quality=85)
-        img_bytes.seek(0)
-        bot.delete_message(message.chat.id, msg.message_id)
-        bot.send_photo(message.chat.id, img_bytes, caption="✅ Скриншот")
-    except Exception as e:
-        bot.reply_to(message, f"❌ {e}")
-
-# ============================================
-# CMD КОМАНДА
-# ============================================
-@bot.message_handler(commands=['cmd'])
-def cmd_cmd(message):
-    if not is_admin(message): return
-    command = message.text.replace('/cmd', '').strip()
-    if not command:
-        bot.reply_to(message, "❌ /cmd ipconfig")
-        return
-    
-    try:
-        result = subprocess.check_output(command, shell=True, text=True, 
-                                        stderr=subprocess.STDOUT, 
-                                        encoding='cp866', timeout=30)
-        if len(result) > 4000:
-            result = result[:4000] + "\n...обрезано"
-        bot.reply_to(message, f"📟 **{command}**\n```\n{result}\n```", parse_mode='Markdown')
-    except Exception as e:
-        bot.reply_to(message, f"❌ {e}")
-
-# ============================================
-# ТОП ПРОЦЕССОВ (упростил вывод)
-# ============================================
-@bot.message_handler(commands=['ps'])
-def ps_cmd(message):
+# --- Кнопка "Процессы" ---
+@bot.message_handler(func=lambda message: message.text == "📋 Процессы")
+def ps_btn(message):
     if not is_admin(message): return
     
     processes = []
@@ -143,125 +94,212 @@ def ps_cmd(message):
     processes.sort(key=lambda x: x.get('cpu_percent', 0), reverse=True)
     top = processes[:5]
     
+    if not top:
+        bot.send_message(message.chat.id, "❌ Не удалось получить список процессов", reply_markup=main_menu())
+        return
+    
     text = "📊 **ТОП ПРОЦЕССОВ**\n━━━━━━━━━━━━━━━━━━━━━\n"
     for i, p in enumerate(top, 1):
-        cpu = p['cpu_percent']
+        cpu = p.get('cpu_percent', 0)
         mem = p.get('memory_percent', 0)
-        name = p['name'][:20]
-        text += f"{i}. {name}\n   ⚡{cpu:.0f}%  💾{mem:.1f}%\n"
+        name = p.get('name', 'unknown')[:20]
+        text += f"{i}. `{name}`\n   ⚡{cpu:.0f}%  💾{mem:.1f}%\n"
     
-    bot.reply_to(message, text, parse_mode='Markdown')
+    bot.send_message(message.chat.id, text, parse_mode='Markdown', reply_markup=main_menu())
 
-# ============================================
-# УБИТЬ ПРОЦЕСС
-# ============================================
-@bot.message_handler(commands=['kill'])
-def kill_cmd(message):
+# --- Кнопка "Выполнить CMD" ---
+@bot.message_handler(func=lambda message: message.text == "⚡ Выполнить CMD")
+def cmd_btn(message):
     if not is_admin(message): return
-    name = message.text.replace('/kill', '').strip()
-    if not name:
-        bot.reply_to(message, "❌ /kill chrome.exe")
-        return
+    msg = bot.send_message(
+        message.chat.id,
+        "📟 Введи команду, которую нужно выполнить.\n"
+        "Например: `ipconfig` или `dir`",
+        parse_mode='Markdown',
+        reply_markup=main_menu()
+    )
+    bot.register_next_step_handler(msg, execute_cmd)
+
+def execute_cmd(message):
+    if not is_admin(message): return
+    command = message.text.strip()
     
     try:
-        os.system(f"taskkill /f /im {name} >nul 2>&1")
-        bot.reply_to(message, f"✅ **{name}** убит")
+        result = subprocess.check_output(command, shell=True, text=True, 
+                                        stderr=subprocess.STDOUT, 
+                                        encoding='cp866', timeout=30)
+        if len(result) > 4000:
+            result = result[:4000] + "\n...обрезано"
+        bot.send_message(
+            message.chat.id,
+            f"📟 **{command}**\n```\n{result}\n```",
+            parse_mode='Markdown',
+            reply_markup=main_menu()
+        )
+    except subprocess.TimeoutExpired:
+        bot.send_message(message.chat.id, "⏰ Команда выполнялась слишком долго (больше 30 секунд)", reply_markup=main_menu())
+    except Exception:
+        bot.send_message(message.chat.id, "❌ Ошибка при выполнении команды. Проверь правильность ввода.", reply_markup=main_menu())
+
+# --- Кнопка "Убить процесс" ---
+@bot.message_handler(func=lambda message: message.text == "💀 Убить процесс")
+def kill_btn(message):
+    if not is_admin(message): return
+    msg = bot.send_message(
+        message.chat.id,
+        "💀 Введи имя процесса для завершения.\n"
+        "Например: `chrome.exe` или `notepad.exe`",
+        parse_mode='Markdown',
+        reply_markup=main_menu()
+    )
+    bot.register_next_step_handler(msg, execute_kill)
+
+def execute_kill(message):
+    if not is_admin(message): return
+    name = message.text.strip()
+    
+    try:
+        result = subprocess.run(f"taskkill /f /im {name}", shell=True, capture_output=True, text=True)
+        if result.returncode == 0:
+            bot.send_message(message.chat.id, f"✅ Процесс **{name}** успешно завершён", parse_mode='Markdown', reply_markup=main_menu())
+        else:
+            bot.send_message(message.chat.id, f"❌ Процесс **{name}** не найден. Возможно, он уже закрыт.", parse_mode='Markdown', reply_markup=main_menu())
     except:
-        bot.reply_to(message, f"❌ Не найден {name}")
+        bot.send_message(message.chat.id, "❌ Ошибка при завершении процесса", reply_markup=main_menu())
 
-# ============================================
-# ПЕРЕЗАГРУЗКА
-# ============================================
-@bot.message_handler(commands=['reboot'])
-def reboot_cmd(message):
-    if not is_admin(message): return
-    bot.reply_to(message, "🔄 **Перезагрузка через 10 секунд**")
-    time.sleep(10)
-    os.system("shutdown /r /t 0")
-
-# ============================================
-# ВЫКЛЮЧЕНИЕ
-# ============================================
-@bot.message_handler(commands=['shutdown'])
-def shutdown_cmd(message):
-    if not is_admin(message): return
-    bot.reply_to(message, "⏳ **Выключение через 15 секунд**")
-    time.sleep(15)
-    os.system("shutdown /s /t 0")
-
-# ============================================
-# БЛОКИРОВКА
-# ============================================
-@bot.message_handler(commands=['lock'])
-def lock_cmd(message):
-    if not is_admin(message): return
-    os.system("rundll32.exe user32.dll,LockWorkStation")
-    bot.reply_to(message, "🔒 **ПК заблокирован**")
-
-# ============================================
-# IP (только внешний)
-# ============================================
-@bot.message_handler(commands=['ip'])
-def ip_cmd(message):
+# --- Кнопка "Мой IP" ---
+@bot.message_handler(func=lambda message: message.text == "🌐 Мой IP")
+def ip_btn(message):
     if not is_admin(message): return
     try:
-        external = requests.get('https://api.ipify.org', timeout=5).text
-        bot.reply_to(message, f"🌐 **Мой IP:**\n`{external}`", parse_mode='Markdown')
+        ip = requests.get('https://api.ipify.org', timeout=5).text
+        bot.send_message(message.chat.id, f"🌐 **Твой внешний IP:**\n`{ip}`", parse_mode='Markdown', reply_markup=main_menu())
     except:
-        bot.reply_to(message, "❌ Не удалось получить IP")
+        bot.send_message(message.chat.id, "❌ Не удалось получить IP-адрес", reply_markup=main_menu())
 
-# ============================================
-# УВЕДОМЛЕНИЕ
-# ============================================
-@bot.message_handler(commands=['notify'])
-def notify_cmd(message):
-    if not is_admin(message): return
-    text = message.text.replace('/notify', '').strip()
-    if not text:
-        bot.reply_to(message, "❌ /notify Текст")
-        return
-    
-    os.system(f'msg * "{text}"')
-    bot.reply_to(message, f"✅ **Уведомление:** {text}")
-
-# ============================================
-# ПИНГ
-# ============================================
-@bot.message_handler(commands=['ping'])
-def ping_cmd(message):
+# --- Кнопка "Пинг" ---
+@bot.message_handler(func=lambda message: message.text == "🏓 Пинг")
+def ping_btn(message):
     if not is_admin(message): return
     start = time.time()
     bot.send_chat_action(message.chat.id, 'typing')
     time.sleep(0.5)
     ping = int((time.time() - start) * 1000)
-    emoji = "🟢" if ping < 200 else "🟡" if ping < 500 else "🔴"
-    bot.reply_to(message, f"{emoji} **Пинг:** {ping} мс", parse_mode='Markdown')
-
-# ============================================
-# ЛЮБОЙ ТЕКСТ КАК CMD
-# ============================================
-@bot.message_handler(func=lambda message: True)
-def text_cmd(message):
-    if not is_admin(message): return
-    if message.text.startswith('/'): return
     
-    try:
-        result = subprocess.check_output(message.text, shell=True, text=True, 
-                                        stderr=subprocess.STDOUT, 
-                                        encoding='cp866', timeout=30)
-        if len(result) > 4000:
-            result = result[:4000] + "\n...обрезано"
-        bot.reply_to(message, f"📟 **{message.text}**\n```\n{result}\n```", parse_mode='Markdown')
-    except Exception as e:
-        bot.reply_to(message, f"❌ {e}")
+    if ping < 150:
+        emoji = "🟢"
+    elif ping < 400:
+        emoji = "🟡"
+    else:
+        emoji = "🔴"
+    
+    bot.send_message(message.chat.id, f"{emoji} **Пинг:** {ping} мс", parse_mode='Markdown', reply_markup=main_menu())
+
+# --- Кнопка "Помощь" ---
+@bot.message_handler(func=lambda message: message.text == "❓ Помощь")
+def help_btn(message):
+    if not is_admin(message): return
+    bot.send_message(
+        message.chat.id,
+        "🎮 **ПУЛЬТ УПРАВЛЕНИЯ ПК**\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "📌 **Что умеет бот:**\n"
+        "├ Показывать загрузку CPU/RAM/Disk\n"
+        "├ Показывать топ процессов\n"
+        "├ Выполнять любые CMD команды\n"
+        "├ Завершать процессы\n"
+        "├ Показывать внешний IP\n"
+        "└ Проверять задержку (пинг)\n\n"
+        "⚠️ **Скриншоты, уведомления и управление питанием**\n"
+        "работают ТОЛЬКО с локальной версией бота на ПК.\n\n"
+        "📱 **Просто нажимай на кнопки!**",
+        parse_mode='Markdown',
+        reply_markup=main_menu()
+    )
+
+# --- Кнопки с предупреждением (локальные функции) ---
+@bot.message_handler(func=lambda message: message.text in ["📸 Скриншот", "💬 Уведомление", "⏹ Выключить ПК", "🔄 Перезагрузить ПК", "🔒 Блокировка"])
+def local_only(message):
+    if not is_admin(message): return
+    
+    if message.text == "📸 Скриншот":
+        bot.send_message(
+            message.chat.id,
+            "📸 **Скриншот**\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "❌ На сервере скриншоты не работают.\n\n"
+            "✅ **Как сделать скриншот:**\n"
+            "1. Скачай локальную версию бота\n"
+            "2. Запусти её на своём ПК\n"
+            "3. Напиши `/ss` в Telegram\n\n"
+            "🔗 Локальная версия:\n"
+            "https://github.com/sndwxd/bot",
+            parse_mode='Markdown',
+            reply_markup=main_menu()
+        )
+    elif message.text == "💬 Уведомление":
+        msg = bot.send_message(
+            message.chat.id,
+            "💬 Отправь текст уведомления, которое появится на ПК.\n"
+            "Например: `Пора сделать перерыв!`",
+            parse_mode='Markdown',
+            reply_markup=main_menu()
+        )
+        bot.register_next_step_handler(msg, send_notify)
+    elif message.text == "⏹ Выключить ПК":
+        bot.send_message(
+            message.chat.id,
+            "⏹ **Выключение ПК**\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "❌ Эта команда работает ТОЛЬКО с локальной версией бота.\n\n"
+            "✅ Запусти локальную версию на ПК и напиши `/shutdown`",
+            parse_mode='Markdown',
+            reply_markup=main_menu()
+        )
+    elif message.text == "🔄 Перезагрузить ПК":
+        bot.send_message(
+            message.chat.id,
+            "🔄 **Перезагрузка ПК**\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "❌ Эта команда работает ТОЛЬКО с локальной версией бота.\n\n"
+            "✅ Запусти локальную версию на ПК и напиши `/reboot`",
+            parse_mode='Markdown',
+            reply_markup=main_menu()
+        )
+    elif message.text == "🔒 Блокировка":
+        bot.send_message(
+            message.chat.id,
+            "🔒 **Блокировка ПК**\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "❌ Эта команда работает ТОЛЬКО с локальной версией бота.\n\n"
+            "✅ Запусти локальную версию на ПК и напиши `/lock`",
+            parse_mode='Markdown',
+            reply_markup=main_menu()
+        )
+
+def send_notify(message):
+    if not is_admin(message): return
+    text = message.text.strip()
+    if not text:
+        bot.send_message(message.chat.id, "❌ Текст не может быть пустым", reply_markup=main_menu())
+        return
+    
+    bot.send_message(
+        message.chat.id,
+        f"💬 **Уведомление**\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"📝 Текст: `{text}`\n\n"
+        "⚠️ Для отправки нужно запустить локальную версию бота на ПК.",
+        parse_mode='Markdown',
+        reply_markup=main_menu()
+    )
 
 # ============================================
 # ЗАПУСК
 # ============================================
 if __name__ == '__main__':
-    print("🔥 Бот запущен!")
-    print(f"👤 ID: {ADMIN_ID}")
-    print("📸 Скриншоты:", "✅" if SCREENSHOT_AVAILABLE else "❌")
+    print("🔥 Бот с кнопками запущен!")
+    print(f"👤 ADMIN ID: {ADMIN_ID}")
     
     while True:
         try:
