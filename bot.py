@@ -2,17 +2,25 @@ import telebot
 import subprocess
 import os
 import psutil
-import pyautogui
 import time
 import platform
 from datetime import datetime
-import io
 
 # ===== ТВОИ ДАННЫЕ =====
 TOKEN = "8872125997:AAFGiMBGIfKmDVZIV7gNx58FK8H9oSB4mFQ"
 ADMIN_ID = 7924628949
 
 bot = telebot.TeleBot(TOKEN)
+
+# ===== ПРОВЕРКА: ЕСТЬ ЛИ ГРАФИЧЕСКИЙ ЭКРАН =====
+try:
+    import pyautogui
+    import io
+    from PIL import Image
+    SCREENSHOT_AVAILABLE = True
+except:
+    SCREENSHOT_AVAILABLE = False
+    print("⚠️ Скриншоты недоступны (запущено на сервере)")
 
 def is_admin(message):
     return message.from_user.id == ADMIN_ID
@@ -23,7 +31,7 @@ def start_cmd(message):
     bot.reply_to(message, 
         "🔥 **Бот для управления ПК**\n\n"
         "/info - система\n"
-        "/screenshot - скрин\n"
+        "/screenshot - скрин (только на ПК)\n"
         "/cmd {команда} - CMD\n"
         "/ps - процессы\n"
         "/kill {имя} - убить процесс\n"
@@ -48,6 +56,11 @@ def info_cmd(message):
 @bot.message_handler(commands=['screenshot'])
 def screenshot_cmd(message):
     if not is_admin(message): return
+    
+    if not SCREENSHOT_AVAILABLE:
+        bot.reply_to(message, "❌ Скриншоты недоступны на сервере")
+        return
+    
     try:
         screenshot = pyautogui.screenshot()
         img_bytes = io.BytesIO()
